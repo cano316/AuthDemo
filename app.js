@@ -22,12 +22,16 @@ app.use(express.urlencoded({ extended: true }))
 const sessionConfig = { secret: 'thisisthesecret' }
 app.use(session(sessionConfig))
 
-app.get('/secret', (req, res) => {
+// Middleware
+const requireLogin = (req, res, next) => {
     if (!req.session.user_id) {
-        res.redirect('/login')
-    } else {
-        res.send('THIS IS A SECRET!!! YOU CANT SEE ME UNLESS YOU ARE LOGGED IN. ')
+        return res.redirect('/login')
     }
+    next();
+}
+
+app.get('/secret', requireLogin, (req, res) => {
+    res.render('secret')
 });
 
 app.get('/register', (req, res) => {
@@ -50,20 +54,29 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const user = await User.findOne({ username });
-    const results = await bcrypt.compare(password, user.password);
-    // The following code means, if the results come back that the username and pw
-    // are in our database, log them in....
-    if (results) {
-        // here we are saving there user id in Mongo to our session
-        req.session.user_id = user._id;
-        res.redirect('/secret')
-    } else {
+    if (user) {
+        const results = await bcrypt.compare(password, user.password);
+        // The following code means, if the results come back that the username and pw
+        // are in our database, log them in....
+        if (results) {
+            // here we are saving there user id in Mongo to our session
+            req.session.user_id = user._id;
+            res.redirect('/secret')
+        } else {
+            res.redirect('/login')
+        }
+    }
+    else {
         res.redirect('/login')
     }
+
 })
 
 
-
+app.post('/logout', (req, res) => {
+    req.session.user_id = null;
+    res.redirect('/login')
+})
 
 
 
